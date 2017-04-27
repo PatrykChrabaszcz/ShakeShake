@@ -2,11 +2,19 @@
 --  Copyright (c) 2016, Facebook, Inc.
 --  All rights reserved.
 --
---  This source code is licensed under the BSD-style license found in the
---  LICENSE file in the root directory of this source tree. An additional grant
+--  This source code is licensed under the BSD-style license found here
+--  https://github.com/facebook/fb.resnet.torch/blob/master/LICENSE. An additional grant
 --  of patent rights can be found in the PATENTS file in the same directory.
 --
+--  Code modified for Shake-Shake by Xavier Gastaldi
+-- 
+
 local checkpoint = {}
+
+------Shake-Shake------
+require 'models/shakeshakeblock'
+local std = require 'std'
+------Shake-Shake------
 
 local function deepCopy(tbl)
    -- creates a copy of a network with new modules and the same tensors
@@ -48,21 +56,29 @@ function checkpoint.save(epoch, model, optimState, isBestModel, opt)
    end
 
    -- create a clean copy on the CPU without modifying the original network
-   model = deepCopy(model):float():clearState()
+   ------Shake-Shake------
+   --model = deepCopy(model):float():clearState()
+   model = std.tree.clone(model):float():clearState()
+   ------Shake-Shake------
 
    local modelFile = 'model_' .. epoch .. '.t7'
    local optimFile = 'optimState_' .. epoch .. '.t7'
 
-   torch.save(paths.concat(opt.save, modelFile), model)
-   torch.save(paths.concat(opt.save, optimFile), optimState)
-   torch.save(paths.concat(opt.save, 'latest.t7'), {
-      epoch = epoch,
-      modelFile = modelFile,
-      optimFile = optimFile,
-   })
+   ------Shake-Shake------
+   --torch.save(paths.concat(opt.save, modelFile), model)
+   --torch.save(paths.concat(opt.save, optimFile), optimState)
+   --torch.save(paths.concat(opt.save, 'latest.t7'), {
+   --   epoch = epoch,
+   --   modelFile = modelFile,
+   --   optimFile = optimFile,
+   --})
+   ------Shake-Shake------
 
    if isBestModel then
       torch.save(paths.concat(opt.save, 'model_best.t7'), model)
+      ------Shake-Shake------
+      torch.save(paths.concat(opt.save, 'optimState_best.t7'), optimState)
+      ------Shake-Shake------
    end
 end
 

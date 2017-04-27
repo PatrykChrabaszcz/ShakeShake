@@ -2,12 +2,11 @@
 --  Copyright (c) 2016, Facebook, Inc.
 --  All rights reserved.
 --
---  This source code is licensed under the BSD-style license found in the
---  LICENSE file in the root directory of this source tree. An additional grant
+--  This source code is licensed under the BSD-style license found here
+--  https://github.com/facebook/fb.resnet.torch/blob/master/LICENSE. An additional grant
 --  of patent rights can be found in the PATENTS file in the same directory.
 --
---  Generic model creating code. For the specific ResNet model see
---  models/resnet.lua
+--  Code modified for Shake-Shake by Xavier Gastaldi
 --
 
 require 'nn'
@@ -88,6 +87,10 @@ function M.setup(opt, checkpoint)
          :add(model, gpus)
          :threads(function()
             local cudnn = require 'cudnn'
+            ------Shake-Shake------
+            local nn = require 'models/mulconstantslices'
+            local nn = require 'models/shakeshakeblock'
+            ------Shake-Shake------
             cudnn.fastest, cudnn.benchmark = fastest, benchmark
          end)
       dpt.gradInput = nil

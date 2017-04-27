@@ -2,14 +2,20 @@
 --  Copyright (c) 2016, Facebook, Inc.
 --  All rights reserved.
 --
---  This source code is licensed under the BSD-style license found in the
---  LICENSE file in the root directory of this source tree. An additional grant
+--  This source code is licensed under the BSD-style license found here
+--  https://github.com/facebook/fb.resnet.torch/blob/master/LICENSE. An additional grant
 --  of patent rights can be found in the PATENTS file in the same directory.
 --
+--  Code modified for Shake-Shake by Xavier Gastaldi
+--
+
 require 'torch'
 require 'paths'
 require 'optim'
 require 'nn'
+------Shake-Shake------
+local json = require 'cjson'
+------Shake-Shake------
 local DataLoader = require 'dataloader'
 local models = require 'models/init'
 local Trainer = require 'train'
@@ -44,6 +50,15 @@ if opt.testOnly then
    return
 end
 
+------Shake-Shake------
+local logfile = io.open(paths.concat(opt.save, 'log.txt'), 'w')
+
+local function log(t)
+   logfile:write('json_stats: '..json.encode(tablex.merge(t,opt,true))..'\n')
+   logfile:flush()
+end
+------Shake-Shake------
+
 local startEpoch = checkpoint and checkpoint.epoch + 1 or opt.epochNumber
 local bestTop1 = math.huge
 local bestTop5 = math.huge
@@ -62,7 +77,22 @@ for epoch = startEpoch, opt.nEpochs do
       print(' * Best model ', testTop1, testTop5)
    end
 
+   ------Shake-Shake------
+   log{
+      epoch = epoch,
+      trainTop1 = trainTop1,
+      trainTop5 = trainTop5,
+      testTop1  = testTop1,
+      testTop5 = testTop5,
+      trainLoss = trainLoss,
+   }
+   ------Shake-Shake------
+
    checkpoints.save(epoch, model, trainer.optimState, bestModel, opt)
 end
 
-print(string.format(' * Finished top1: %6.3f  top5: %6.3f', bestTop1, bestTop5))
+------Shake-Shake------
+-- The error rate for CIFAR-10 should be the error rate obtained at the end of the last epoch, not the best error rate
+-- The fb.resnet line below is only valid for Imagenet experiments
+-- print(string.format(' * Finished top1: %6.3f  top5: %6.3f', bestTop1, bestTop5))
+------Shake-Shake------

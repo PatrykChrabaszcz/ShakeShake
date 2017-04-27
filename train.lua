@@ -2,11 +2,11 @@
 --  Copyright (c) 2016, Facebook, Inc.
 --  All rights reserved.
 --
---  This source code is licensed under the BSD-style license found in the
---  LICENSE file in the root directory of this source tree. An additional grant
+--  This source code is licensed under the BSD-style license found here
+--  https://github.com/facebook/fb.resnet.torch/blob/master/LICENSE. An additional grant
 --  of patent rights can be found in the PATENTS file in the same directory.
 --
---  The training loop and learning rate schedule
+--  Code modified for Shake-Shake by Xavier Gastaldi
 --
 
 local optim = require 'optim'
@@ -31,7 +31,12 @@ end
 
 function Trainer:train(epoch, dataloader)
    -- Trains the model for a single epoch
-   self.optimState.learningRate = self:learningRate(epoch)
+
+   ------Shake-Shake------
+   if self.opt.lrShape == 'multistep' then
+      self.optimState.learningRate = self:learningRate(epoch)
+   end
+   ------Shake-Shake------
 
    local timer = torch.Timer()
    local dataTimer = torch.Timer()
@@ -48,6 +53,13 @@ function Trainer:train(epoch, dataloader)
    -- set the batch norm to training mode
    self.model:training()
    for n, sample in dataloader:run() do
+
+      ------Shake-Shake------
+      if self.opt.lrShape == 'cosine' then
+         self.optimState.learningRate = self:learningRateCosine(epoch, n, trainSize)
+      end
+      ------Shake-Shake------
+
       local dataTime = dataTimer:time().real
 
       -- Copy input and target to the GPU
@@ -68,9 +80,14 @@ function Trainer:train(epoch, dataloader)
       top5Sum = top5Sum + top5*batchSize
       lossSum = lossSum + loss*batchSize
       N = N + batchSize
+      n_params = self.params:size(1)
+      --print((' | Epoch: [%d][%d/%d]    Time %.3f  Data %.3f  Err %1.4f  top1 %7.3f  top5 %7.3f'):format(
+      --   epoch, n, trainSize, timer:time().real, dataTime, loss, top1, top5))
 
-      print((' | Epoch: [%d][%d/%d]    Time %.3f  Data %.3f  Err %1.4f  top1 %7.3f  top5 %7.3f'):format(
-         epoch, n, trainSize, timer:time().real, dataTime, loss, top1, top5))
+      ------Shake-Shake------
+      print((' | Epoch: [%d][%d/%d]   Time %.3f  Data %.3f  Err %1.3f  top1 %7.2f  top5 %7.2f  lr %.4f'):format(
+         epoch, n, trainSize, timer:time().real, dataTime, loss, top1, top5, self.optimState.learningRate))
+      ------Shake-Shake------
 
       -- check that the storage didn't get changed due to an unfortunate getParameters call
       assert(self.params:storage() == self.model:parameters()[1]:storage())
@@ -183,5 +200,17 @@ function Trainer:learningRate(epoch)
    end
    return self.opt.LR * math.pow(0.1, decay)
 end
+
+------Shake-Shake------
+-- Cosine function from https://github.com/gaohuang/SnapshotEnsemble
+function Trainer:learningRateCosine(epoch, iter, nBatches)
+   local nEpochs_sub =  torch.floor(self.opt.nEpochs / self.opt.nCycles)
+   local nEpochs_last =  self.opt.nEpochs - (self.opt.nCycles - 1) * nEpochs_sub
+   local nEpochs_cur = (epoch >  (self.opt.nCycles - 1) * nEpochs_sub) and nEpochs_last or nEpochs_sub
+   local T_total = nEpochs_cur * nBatches
+   local T_cur = ((epoch-1) % nEpochs_cur) * nBatches + iter
+   return 0.5 * self.opt.LR * (1 + torch.cos(math.pi * T_cur / T_total))
+end
+------Shake-Shake------
 
 return M.Trainer
